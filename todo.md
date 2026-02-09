@@ -14,3 +14,4 @@
 - [x] ローカルデータ保存（AsyncStorage）
 - [x] アプリロゴ生成
 - [x] ブランディング設定（app.config.ts）
+- [x] BUG: 録音画面でマイクアクセスエラー（navigator.mediaDevicesがExpo Goで使えない → expo-audioに切り替え）

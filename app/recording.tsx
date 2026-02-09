@@ -5,11 +5,18 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useKeepAwake } from "expo-keep-awake";
+import {
+  useAudioRecorder,
+  useAudioRecorderState,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from "expo-audio";
+import * as FileSystem from "expo-file-system/legacy";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -28,7 +35,7 @@ const RECORDING_DURATION = 60; // seconds
 const MIN_DURATION = 10; // minimum seconds to analyze
 const COUNTDOWN_SECONDS = 3;
 
-type RecordingState = "countdown" | "recording" | "analyzing" | "error";
+type ScreenState = "countdown" | "recording" | "analyzing" | "error";
 
 export default function RecordingScreen() {
   useKeepAwake();
@@ -40,15 +47,18 @@ export default function RecordingScreen() {
   }>();
   const topicTitle = params.topicTitle || "Free Talk";
 
-  const [state, setState] = useState<RecordingState>("countdown");
+  const [state, setState] = useState<ScreenState>("countdown");
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [elapsed, setElapsed] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
+  const isStoppingRef = useRef(false);
+
+  // expo-audio recorder
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder, 500);
 
   // Animation
   const pulseScale = useSharedValue(1);
@@ -107,22 +117,28 @@ export default function RecordingScreen() {
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      chunksRef.current = [];
+      // Request microphone permission
+      const { granted } = await requestRecordingPermissionsAsync();
+      if (!granted) {
+        setErrorMsg(
+          "Microphone permission is required. Please allow microphone access in your device settings and try again."
+        );
+        setState("error");
+        return;
+      }
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
-      };
+      // Configure audio mode for recording
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+      });
 
-      mediaRecorder.start(1000); // collect data every second
-      mediaRecorderRef.current = mediaRecorder;
+      // Prepare and start recording
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+
       startTimeRef.current = Date.now();
+      isStoppingRef.current = false;
       setState("recording");
 
       if (Platform.OS !== "web") {
@@ -131,85 +147,88 @@ export default function RecordingScreen() {
     } catch (err) {
       console.error("Failed to start recording:", err);
       setErrorMsg(
-        "Could not access microphone. Please allow microphone permission and try again."
+        "Could not start recording. Please allow microphone permission and try again."
       );
       setState("error");
     }
-  }, []);
+  }, [recorder]);
 
   const stopRecording = useCallback(async () => {
+    if (isStoppingRef.current) return;
+    isStoppingRef.current = true;
+
     if (timerRef.current) clearInterval(timerRef.current);
 
-    const mediaRecorder = mediaRecorderRef.current;
-    if (!mediaRecorder || mediaRecorder.state === "inactive") return;
-
-    const actualDuration = Math.round((Date.now() - startTimeRef.current) / 1000);
+    const actualDuration = Math.max(
+      Math.round((Date.now() - startTimeRef.current) / 1000),
+      1
+    );
 
     if (actualDuration < MIN_DURATION) {
       setErrorMsg(
         `Please speak for at least ${MIN_DURATION} seconds. You spoke for ${actualDuration} seconds.`
       );
-      mediaRecorder.stop();
-      mediaRecorder.stream.getTracks().forEach((t) => t.stop());
+      try {
+        await recorder.stop();
+      } catch {}
       setState("error");
       return;
     }
 
     setState("analyzing");
 
-    return new Promise<void>((resolve) => {
-      mediaRecorder.onstop = async () => {
-        // Stop all tracks
-        mediaRecorder.stream.getTracks().forEach((t) => t.stop());
+    try {
+      // Stop the recorder
+      await recorder.stop();
 
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      // Get the recording URI
+      const uri = recorder.uri;
+      if (!uri) {
+        throw new Error("No recording URI available");
+      }
 
-        // Convert blob to base64
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64 = (reader.result as string).split(",")[1];
+      // Read the file as base64
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-          try {
-            const result = await analyzeMutation.mutateAsync({
-              audioBase64: base64,
-              mimeType: "audio/webm",
-              topic: topicTitle,
-              durationSeconds: actualDuration,
-            });
+      // Determine mime type based on file extension
+      const isM4a = uri.endsWith(".m4a") || uri.endsWith(".caf");
+      const mimeType = isM4a ? "audio/mp4" : "audio/webm";
 
-            // Save to history
-            const speakingResult: SpeakingResult = {
-              id: Date.now().toString(),
-              ...result,
-              createdAt: new Date().toISOString(),
-            };
-            await addToHistory(speakingResult);
+      // Send to server for analysis
+      const result = await analyzeMutation.mutateAsync({
+        audioBase64: base64,
+        mimeType,
+        topic: topicTitle,
+        durationSeconds: actualDuration,
+      });
 
-            if (Platform.OS !== "web") {
-              Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Success
-              );
-            }
-
-            // Navigate to result
-            router.replace({
-              pathname: "/result",
-              params: { resultId: speakingResult.id },
-            });
-          } catch (err) {
-            console.error("Analysis failed:", err);
-            setErrorMsg(
-              "Analysis failed. Please check your connection and try again."
-            );
-            setState("error");
-          }
-          resolve();
-        };
-        reader.readAsDataURL(blob);
+      // Save to history
+      const speakingResult: SpeakingResult = {
+        id: Date.now().toString(),
+        ...result,
+        createdAt: new Date().toISOString(),
       };
-      mediaRecorder.stop();
-    });
-  }, [topicTitle, analyzeMutation, router]);
+      await addToHistory(speakingResult);
+
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
+      // Navigate to result
+      router.replace({
+        pathname: "/result",
+        params: { resultId: speakingResult.id },
+      });
+    } catch (err) {
+      console.error("Analysis failed:", err);
+      setErrorMsg(
+        "Analysis failed. Please check your connection and try again."
+      );
+      setState("error");
+    }
+  }, [topicTitle, analyzeMutation, router, recorder]);
 
   const handleStop = () => {
     if (Platform.OS !== "web") {
@@ -219,10 +238,11 @@ export default function RecordingScreen() {
   };
 
   const handleGoBack = () => {
-    // Clean up
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+    // Clean up recorder if still active
+    if (recorderState.isRecording) {
+      try {
+        recorder.stop();
+      } catch {}
     }
     if (timerRef.current) clearInterval(timerRef.current);
     router.back();
@@ -300,7 +320,14 @@ export default function RecordingScreen() {
       {state === "recording" && (
         <View className="items-center">
           {/* Pulse circle */}
-          <View style={{ width: 200, height: 200, alignItems: "center", justifyContent: "center" }}>
+          <View
+            style={{
+              width: 200,
+              height: 200,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <Animated.View
               style={[
                 {
