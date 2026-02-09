@@ -54,7 +54,6 @@ class WebRecorder {
   }
 
   async prepare(): Promise<void> {
-    // Check if mediaDevices is available
     if (
       typeof navigator === "undefined" ||
       !navigator.mediaDevices ||
@@ -99,7 +98,6 @@ class WebRecorder {
         });
         this._uri = URL.createObjectURL(blob);
         this._isRecording = false;
-        // Stop all tracks
         this.stream?.getTracks().forEach((t) => t.stop());
         resolve(this._uri);
       };
@@ -221,14 +219,13 @@ export default function RecordingScreen() {
   const startRecording = useCallback(async () => {
     try {
       if (isWeb) {
-        // Web: use MediaRecorder directly
         const webRec = new WebRecorder();
         try {
           await webRec.prepare();
         } catch (err: any) {
           if (err?.message === "MEDIA_DEVICES_NOT_AVAILABLE") {
             setErrorMsg(
-              "Microphone is not available in this browser environment. Please open the app in a browser that supports microphone access (Chrome, Firefox, Safari), or use the Expo Go app on your phone for the best experience."
+              "この環境ではマイクを利用できません。Chrome、Firefox、Safariなどのブラウザで開くか、スマホのExpo Goアプリをご利用ください。"
             );
             setState("error");
             return;
@@ -238,11 +235,10 @@ export default function RecordingScreen() {
         webRec.start();
         webRecorderRef.current = webRec;
       } else {
-        // Native: use expo-audio
         const { granted } = await requestRecordingPermissionsAsync();
         if (!granted) {
           setErrorMsg(
-            "Microphone permission is required. Please allow microphone access in your device settings and try again."
+            "マイクの使用許可が必要です。端末の設定からマイクへのアクセスを許可してください。"
           );
           setState("error");
           return;
@@ -265,7 +261,7 @@ export default function RecordingScreen() {
     } catch (err) {
       console.error("Failed to start recording:", err);
       setErrorMsg(
-        "Could not start recording. Please allow microphone permission and try again."
+        "録音を開始できませんでした。マイクの使用許可を確認してもう一度お試しください。"
       );
       setState("error");
     }
@@ -285,7 +281,7 @@ export default function RecordingScreen() {
 
     if (actualDuration < MIN_DURATION) {
       setErrorMsg(
-        `Please speak for at least ${MIN_DURATION} seconds. You spoke for ${actualDuration} seconds.`
+        `最低${MIN_DURATION}秒以上話してください。今回は${actualDuration}秒でした。`
       );
       try {
         if (isWeb) {
@@ -306,19 +302,16 @@ export default function RecordingScreen() {
       let mimeType: string;
 
       if (isWeb) {
-        // Web: get base64 from WebRecorder
         await webRecorderRef.current?.stop();
         const data = await webRecorderRef.current!.getBase64();
         base64 = data.base64;
         mimeType = data.mimeType;
         webRecorderRef.current?.cleanup();
       } else {
-        // Native: stop recorder and read file
         await nativeRecorder.stop();
         const uri = nativeRecorder.uri;
         if (!uri) throw new Error("No recording URI available");
 
-        // Dynamic import for native file system
         const FileSystem = await import("expo-file-system/legacy");
         base64 = await FileSystem.readAsStringAsync(uri, {
           encoding: FileSystem.EncodingType.Base64,
@@ -347,7 +340,6 @@ export default function RecordingScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
-      // Navigate to result
       router.replace({
         pathname: "/result",
         params: { resultId: speakingResult.id },
@@ -355,7 +347,7 @@ export default function RecordingScreen() {
     } catch (err) {
       console.error("Analysis failed:", err);
       setErrorMsg(
-        "Analysis failed. Please check your connection and try again."
+        "分析に失敗しました。通信環境を確認してもう一度お試しください。"
       );
       setState("error");
     }
@@ -369,7 +361,6 @@ export default function RecordingScreen() {
   };
 
   const handleGoBack = () => {
-    // Clean up
     if (isWeb) {
       webRecorderRef.current?.cleanup();
     } else if (nativeRecorderState.isRecording) {
@@ -407,14 +398,14 @@ export default function RecordingScreen() {
             },
           ]}
         >
-          <Text className="text-base font-medium text-foreground">Back</Text>
+          <Text className="text-base font-medium text-foreground">戻る</Text>
         </Pressable>
       )}
 
       {/* Topic */}
       <View className="items-center mb-8">
         <Text className="text-sm font-medium text-muted uppercase tracking-wider mb-1">
-          Topic
+          テーマ
         </Text>
         <Text className="text-xl font-bold text-foreground text-center">
           {topicTitle}
@@ -445,7 +436,7 @@ export default function RecordingScreen() {
               {countdown}
             </Text>
           </View>
-          <Text className="text-lg text-muted">Get ready to speak...</Text>
+          <Text className="text-lg text-muted">英語で話す準備をしよう...</Text>
         </View>
       )}
 
@@ -499,7 +490,7 @@ export default function RecordingScreen() {
                   fontSize: 14,
                 }}
               >
-                seconds left
+                秒
               </Text>
             </View>
           </View>
@@ -527,7 +518,7 @@ export default function RecordingScreen() {
           </View>
 
           <Text className="text-base text-muted mb-6">
-            Keep speaking in English...
+            英語で話し続けましょう...
           </Text>
 
           {/* Stop button */}
@@ -553,7 +544,7 @@ export default function RecordingScreen() {
                 fontWeight: "700",
               }}
             >
-              Stop & Analyze
+              終了して分析する
             </Text>
           </Pressable>
         </View>
@@ -564,10 +555,10 @@ export default function RecordingScreen() {
         <View className="items-center">
           <ActivityIndicator size="large" color={colors.primary} />
           <Text className="text-xl font-bold text-foreground mt-6 mb-2">
-            Analyzing your speech...
+            スピーチを分析中...
           </Text>
           <Text className="text-base text-muted text-center">
-            Transcribing and generating{"\n"}personalized feedback
+            文字起こしとフィードバックを{"\n"}生成しています
           </Text>
         </View>
       )}
@@ -584,7 +575,7 @@ export default function RecordingScreen() {
             😕
           </Text>
           <Text className="text-lg font-bold text-foreground mb-2 text-center">
-            Oops!
+            エラーが発生しました
           </Text>
           <Text className="text-base text-muted text-center mb-6">
             {errorMsg}
@@ -609,7 +600,7 @@ export default function RecordingScreen() {
                 fontWeight: "700",
               }}
             >
-              Go Back
+              戻る
             </Text>
           </Pressable>
         </View>

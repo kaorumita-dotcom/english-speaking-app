@@ -16,3 +16,8 @@
 - [x] ブランディング設定（app.config.ts）
 - [x] BUG: 録音画面でマイクアクセスエラー（navigator.mediaDevicesがExpo Goで使えない → expo-audioに切り替え）
 - [x] BUG: prepareToRecordAsync内部でgetUserMediaが呼ばれるエラー（Web/ネイティブ両対応に修正）
+- [x] UI日本語化: ホーム画面のテキストを日本語に変更
+- [x] UI日本語化: 録音画面のテキストを日本語に変更
+- [x] UI日本語化: 結果画面のテキストを日本語に変更
+- [x] UI日本語化: 履歴画面のテキストを日本語に変更
+- [x] AIフィードバックを日本語で出力するようサーバー側プロンプトを変更

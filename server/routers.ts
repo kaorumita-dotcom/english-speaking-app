@@ -71,44 +71,44 @@ export const appRouter = router({
           messages: [
             {
               role: "system",
-              content: `You are a friendly and encouraging English teacher for Japanese university freshmen (beginner level, CEFR A1-B1 range).
-              
-Your task is to analyze a student's 1-minute English speaking practice and provide feedback.
+              content: `あなたは日本の大学1年生（英語初級レベル、CEFR A1〜B1程度）を対象とした、優しく励ましてくれる英語の先生です。
 
-You MUST respond in valid JSON format with this exact structure:
+あなたの仕事は、学生の1分間の英語スピーキング練習を分析し、フィードバックを提供することです。
+
+必ず以下のJSON形式で回答してください：
 {
-  "cefrLevel": "A1" or "A2" or "B1" or "B2" or "C1" or "C2",
-  "cefrExplanation": "Brief explanation of why this CEFR level (1 sentence, in English)",
-  "goodPoints": ["Point 1 about expression or content (in English)", "Point 2 (in English)"],
-  "grammarNotes": ["Grammar note 1 (in English)", "Grammar note 2 (in English, optional)"],
-  "encouragement": "A warm closing message with praise and encouragement (in English)"
+  "cefrLevel": "A1" または "A2" または "B1" または "B2" または "C1" または "C2",
+  "cefrExplanation": "このCEFRレベルと判定した理由（日本語で1文）",
+  "goodPoints": ["表現や内容の良い点1（日本語）", "表現や内容の良い点2（日本語）"],
+  "grammarNotes": ["文法の注意点1（日本語で、正しい表現も示す）", "文法の注意点2（日本語、任意）"],
+  "encouragement": "まとめの褒め言葉と励ましのメッセージ（日本語）"
 }
 
-Guidelines for CEFR assessment:
-- A1 (Beginner): Very basic phrases, limited vocabulary, many pauses. WPM typically under 50.
-- A2 (Elementary): Simple sentences, basic vocabulary, some hesitation. WPM typically 50-80.
-- B1 (Intermediate): Connected sentences, reasonable fluency, some errors. WPM typically 80-120.
-- B2 (Upper Intermediate): Clear, detailed speech with good fluency. WPM typically 120-150.
-- C1/C2: Advanced fluency with complex structures. WPM typically 150+.
+CEFRレベルの判定基準：
+- A1（初級）：非常に基本的なフレーズ、語彙が限られている、ポーズが多い。WPMは通常50未満。
+- A2（初中級）：簡単な文、基本的な語彙、多少のためらい。WPMは通常50〜80。
+- B1（中級）：文をつなげて話せる、まずまずの流暢さ、いくつかの誤り。WPMは通常80〜120。
+- B2（中上級）：明確で詳細なスピーチ、良い流暢さ。WPMは通常120〜150。
+- C1/C2：複雑な構文を使った高度な流暢さ。WPMは通常150以上。
 
-Guidelines for feedback:
-- goodPoints: Always find 2 positive things to say about their expression, vocabulary choice, or content. Be specific and genuine.
-- grammarNotes: Point out 1-2 grammar issues gently. Show the correction. Keep it simple and educational.
-- encouragement: Be warm, supportive, and motivating. Acknowledge their effort.
+フィードバックのガイドライン：
+- goodPoints：表現、語彙の選び方、内容について必ず2つの良い点を見つけてください。具体的で誠実に褒めてください。
+- grammarNotes：文法の問題点を1〜2つ、優しく指摘してください。正しい表現を示してください。シンプルで教育的に。
+- encouragement：温かく、支持的で、やる気を引き出すメッセージにしてください。学生の努力を認めてください。
 
-Important: Even if the speech is very short or has many errors, always be encouraging and find something positive to say.`,
+重要：スピーチが非常に短かったり、多くの誤りがあっても、必ず励まし、良い点を見つけてください。すべてのフィードバックは日本語で書いてください。`,
             },
             {
               role: "user",
-              content: `Topic: "${topic}"
-Speaking duration: ${durationSeconds} seconds
-Word count: ${wordCount}
-Words per minute: ${wpm}
+              content: `テーマ: "${topic}"
+スピーキング時間: ${durationSeconds}秒
+語数: ${wordCount}
+1分あたりの語数 (WPM): ${wpm}
 
-Transcribed speech:
+文字起こしされたスピーチ:
 "${transcribedText}"
 
-Please analyze this speech and provide feedback in the JSON format specified.`,
+上記のスピーチを分析し、指定されたJSON形式でフィードバックを提供してください。`,
             },
           ],
           response_format: { type: "json_object" },
@@ -123,16 +123,16 @@ Please analyze this speech and provide feedback in the JSON format specified.`,
           // Fallback feedback if LLM parsing fails
           feedback = {
             cefrLevel: wpm < 50 ? "A1" : wpm < 80 ? "A2" : wpm < 120 ? "B1" : "B2",
-            cefrExplanation: "Level estimated based on speaking speed.",
+            cefrExplanation: "スピーキング速度に基づいてレベルを推定しました。",
             goodPoints: [
-              "Great job attempting to speak in English!",
-              "You showed courage by practicing your speaking skills.",
+              "英語で話そうとチャレンジしたこと自体が素晴らしいです！",
+              "スピーキング練習に取り組む姿勢がとても良いです。",
             ],
             grammarNotes: [
-              "Keep practicing to improve your sentence structure.",
+              "文の構造をさらに練習していきましょう。",
             ],
             encouragement:
-              "Every practice session makes you better. Keep up the great work!",
+              "練習を重ねるたびに上達していきます。この調子で頑張りましょう！",
           };
         }
 

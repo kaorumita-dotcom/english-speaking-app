@@ -68,17 +68,17 @@ export default function HomeScreen() {
         {/* Header */}
         <View className="items-center mb-6">
           <Text className="text-3xl font-bold text-foreground">
-            Solo English
+            独り言英会話
           </Text>
           <Text className="text-base text-muted mt-1">
-            Practice speaking for 1 minute
+            1分間、英語で話してみよう
           </Text>
         </View>
 
         {/* Topic Card */}
         <View className="bg-surface rounded-2xl p-6 mb-4 border border-border">
           <Text className="text-sm font-medium text-muted uppercase tracking-wider mb-2">
-            Today's Topic
+            今日のテーマ
           </Text>
           <View className="flex-row items-center mb-3">
             <Text className="text-4xl mr-3">{topic.emoji}</Text>
@@ -100,7 +100,7 @@ export default function HomeScreen() {
             ]}
           >
             <Text className="text-sm font-medium text-muted">
-              Change Topic
+              テーマを変える
             </Text>
           </Pressable>
         </View>
@@ -127,7 +127,7 @@ export default function HomeScreen() {
               fontWeight: "700",
             }}
           >
-            Start Speaking
+            スピーキング開始
           </Text>
           <Text
             style={{
@@ -136,21 +136,21 @@ export default function HomeScreen() {
               marginTop: 4,
             }}
           >
-            Tap to begin your 1-minute practice
+            タップして1分間の練習を始めよう
           </Text>
         </Pressable>
 
         {/* Recent History */}
         <View>
           <Text className="text-lg font-bold text-foreground mb-3">
-            Recent Practice
+            最近の練習
           </Text>
           {loading ? (
             <ActivityIndicator color={colors.primary} />
           ) : recentHistory.length === 0 ? (
             <View className="bg-surface rounded-xl p-5 items-center border border-border">
               <Text className="text-muted text-center">
-                No practice sessions yet.{"\n"}Start your first session above!
+                まだ練習記録がありません。{"\n"}上のボタンから最初の練習を始めましょう！
               </Text>
             </View>
           ) : (
@@ -218,7 +218,7 @@ export default function HomeScreen() {
                         </Text>
                       </View>
                       <Text className="text-sm text-muted">
-                        {item.wpm} WPM
+                        {item.wpm} 語/分
                       </Text>
                     </View>
                   </View>

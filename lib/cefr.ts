@@ -10,12 +10,12 @@ export const CEFR_COLORS: Record<CEFRLevel, { bg: string; text: string }> = {
 };
 
 export const CEFR_LABELS: Record<CEFRLevel, string> = {
-  A1: "Beginner",
-  A2: "Elementary",
-  B1: "Intermediate",
-  B2: "Upper Intermediate",
-  C1: "Advanced",
-  C2: "Proficient",
+  A1: "初級",
+  A2: "初中級",
+  B1: "中級",
+  B2: "中上級",
+  C1: "上級",
+  C2: "最上級",
 };
 
 export function getCEFRColor(level: string): { bg: string; text: string } {
@@ -23,5 +23,5 @@ export function getCEFRColor(level: string): { bg: string; text: string } {
 }
 
 export function getCEFRLabel(level: string): string {
-  return CEFR_LABELS[level as CEFRLevel] || "Beginner";
+  return CEFR_LABELS[level as CEFRLevel] || "初級";
 }

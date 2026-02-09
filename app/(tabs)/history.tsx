@@ -124,7 +124,7 @@ export default function HistoryScreen() {
                 color: colors.primary,
               }}
             >
-              {item.wpm} WPM
+              {item.wpm} 語/分
             </Text>
           </View>
         </View>
@@ -151,24 +151,24 @@ export default function HistoryScreen() {
     <ScreenContainer className="px-5 pt-4">
       {/* Header */}
       <View className="mb-4">
-        <Text className="text-3xl font-bold text-foreground">History</Text>
+        <Text className="text-3xl font-bold text-foreground">練習履歴</Text>
         <Text className="text-base text-muted mt-1">
-          Your speaking practice records
+          これまでのスピーキング練習の記録
         </Text>
       </View>
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <Text className="text-muted">Loading...</Text>
+          <Text className="text-muted">読み込み中...</Text>
         </View>
       ) : history.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <Text style={{ fontSize: 48, marginBottom: 16 }}>🎙️</Text>
           <Text className="text-lg font-semibold text-foreground mb-2">
-            No sessions yet
+            まだ記録がありません
           </Text>
           <Text className="text-base text-muted text-center">
-            Complete your first speaking{"\n"}practice to see it here
+            最初のスピーキング練習を{"\n"}完了すると、ここに表示されます
           </Text>
         </View>
       ) : (

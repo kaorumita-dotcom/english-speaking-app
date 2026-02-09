@@ -52,7 +52,7 @@ export default function ResultScreen() {
         edges={["top", "bottom", "left", "right"]}
         className="flex-1 items-center justify-center"
       >
-        <Text className="text-muted">Loading result...</Text>
+        <Text className="text-muted">読み込み中...</Text>
       </ScreenContainer>
     );
   }
@@ -72,7 +72,7 @@ export default function ResultScreen() {
         {/* Header */}
         <View className="items-center mb-6">
           <Text className="text-2xl font-bold text-foreground">
-            Your Results
+            あなたの結果
           </Text>
           <Text className="text-sm text-muted mt-1">{result.topic}</Text>
         </View>
@@ -107,7 +107,7 @@ export default function ResultScreen() {
                 {result.wpm}
               </Text>
               <Text className="text-sm font-medium text-muted">
-                Words / Min
+                語 / 分
               </Text>
             </View>
 
@@ -157,10 +157,10 @@ export default function ResultScreen() {
             }}
           >
             <Text className="text-sm text-muted">
-              {result.wordCount} words
+              {result.wordCount} 語
             </Text>
             <Text className="text-sm text-muted">
-              {result.durationSeconds}s duration
+              {result.durationSeconds}秒間
             </Text>
           </View>
 
@@ -192,7 +192,7 @@ export default function ResultScreen() {
                   color: "#065F46",
                 }}
               >
-                Great Points
+                良かった点
               </Text>
             </View>
             {result.goodPoints.map((point, i) => (
@@ -242,7 +242,7 @@ export default function ResultScreen() {
                   color: "#92400E",
                 }}
               >
-                Grammar Tips
+                文法の注意点
               </Text>
             </View>
             {result.grammarNotes.map((note, i) => (
@@ -292,7 +292,7 @@ export default function ResultScreen() {
                   color: "#1E40AF",
                 }}
               >
-                Keep Going!
+                まとめ・応援メッセージ
               </Text>
             </View>
             <Text
@@ -327,7 +327,7 @@ export default function ResultScreen() {
                 marginBottom: 8,
               }}
             >
-              Your Speech (Transcription)
+              あなたのスピーチ（文字起こし）
             </Text>
             <Text
               style={{
@@ -363,7 +363,7 @@ export default function ResultScreen() {
               fontWeight: "700",
             }}
           >
-            Try Again
+            もう一度チャレンジ
           </Text>
         </Pressable>
 
@@ -388,7 +388,7 @@ export default function ResultScreen() {
               fontWeight: "600",
             }}
           >
-            Back to Home
+            ホームに戻る
           </Text>
         </Pressable>
       </ScrollView>
