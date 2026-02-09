@@ -15,3 +15,4 @@
 - [x] アプリロゴ生成
 - [x] ブランディング設定（app.config.ts）
 - [x] BUG: 録音画面でマイクアクセスエラー（navigator.mediaDevicesがExpo Goで使えない → expo-audioに切り替え）
+- [x] BUG: prepareToRecordAsync内部でgetUserMediaが呼ばれるエラー（Web/ネイティブ両対応に修正）

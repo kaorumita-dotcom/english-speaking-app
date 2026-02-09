@@ -1,0 +1,21 @@
+Debug analysis:
+- Error: "Failed to start recording: TypeError: Cannot read property 'getUserMedia' of undefined"
+- Source: recording.tsx line 136:7 → recorder.prepareToRecordAsync()
+- The error comes from AudioModule.web.js createMediaRecorder() which calls getUserMedia()
+- The dev server runs with --web flag, so Metro bundles the web version of expo-audio
+- Expo Go on device connects to this Metro server and gets the web bundle
+- Problem: The app is being served as a web bundle, not native
+
+Key insight: The dev server is started with `--web` flag which means it serves web bundles.
+When Expo Go connects, it should get native bundles via Metro, not web bundles.
+But the error trace shows AudioModule.web.js is being loaded.
+
+This is likely because Expo Go is loading the app through a web browser (Chrome custom tab)
+rather than through the native Expo Go runtime.
+
+Solution: The recording must work in BOTH web and native contexts.
+For web: Use navigator.mediaDevices.getUserMedia with proper error handling
+For native: Use expo-audio native APIs
+
+Need to detect platform and handle accordingly, with proper fallback for web environments
+where mediaDevices may not be available (like Expo Go's embedded browser).

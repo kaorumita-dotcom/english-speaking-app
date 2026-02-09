@@ -16,7 +16,6 @@ import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
 } from "expo-audio";
-import * as FileSystem from "expo-file-system/legacy";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -37,6 +36,104 @@ const COUNTDOWN_SECONDS = 3;
 
 type ScreenState = "countdown" | "recording" | "analyzing" | "error";
 
+// ============================================================
+// Web-specific recording helper (uses MediaRecorder directly)
+// ============================================================
+class WebRecorder {
+  private stream: MediaStream | null = null;
+  private mediaRecorder: MediaRecorder | null = null;
+  private chunks: Blob[] = [];
+  private _uri: string | null = null;
+  private _isRecording = false;
+
+  get uri() {
+    return this._uri;
+  }
+  get isRecording() {
+    return this._isRecording;
+  }
+
+  async prepare(): Promise<void> {
+    // Check if mediaDevices is available
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia
+    ) {
+      throw new Error("MEDIA_DEVICES_NOT_AVAILABLE");
+    }
+    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    this.chunks = [];
+    this._uri = null;
+  }
+
+  start(): void {
+    if (!this.stream) throw new Error("Not prepared");
+    const options: MediaRecorderOptions = {};
+    if (typeof MediaRecorder !== "undefined") {
+      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+        options.mimeType = "audio/webm;codecs=opus";
+      } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+        options.mimeType = "audio/webm";
+      } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+        options.mimeType = "audio/mp4";
+      }
+    }
+    this.mediaRecorder = new MediaRecorder(this.stream, options);
+    this.mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) this.chunks.push(e.data);
+    };
+    this.mediaRecorder.start();
+    this._isRecording = true;
+  }
+
+  async stop(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      if (!this.mediaRecorder) {
+        reject(new Error("No recorder"));
+        return;
+      }
+      this.mediaRecorder.onstop = () => {
+        const blob = new Blob(this.chunks, {
+          type: this.mediaRecorder?.mimeType || "audio/webm",
+        });
+        this._uri = URL.createObjectURL(blob);
+        this._isRecording = false;
+        // Stop all tracks
+        this.stream?.getTracks().forEach((t) => t.stop());
+        resolve(this._uri);
+      };
+      this.mediaRecorder.stop();
+    });
+  }
+
+  async getBase64(): Promise<{ base64: string; mimeType: string }> {
+    if (this.chunks.length === 0) throw new Error("No recording data");
+    const blob = new Blob(this.chunks, {
+      type: this.mediaRecorder?.mimeType || "audio/webm",
+    });
+    const arrayBuffer = await blob.arrayBuffer();
+    const uint8 = new Uint8Array(arrayBuffer);
+    let binary = "";
+    for (let i = 0; i < uint8.length; i++) {
+      binary += String.fromCharCode(uint8[i]);
+    }
+    const base64 = btoa(binary);
+    return { base64, mimeType: blob.type || "audio/webm" };
+  }
+
+  cleanup(): void {
+    this.stream?.getTracks().forEach((t) => t.stop());
+    this.stream = null;
+    this.mediaRecorder = null;
+    this.chunks = [];
+    this._isRecording = false;
+  }
+}
+
+// ============================================================
+// Main Recording Screen Component
+// ============================================================
 export default function RecordingScreen() {
   useKeepAwake();
   const router = useRouter();
@@ -56,9 +153,14 @@ export default function RecordingScreen() {
   const startTimeRef = useRef<number>(0);
   const isStoppingRef = useRef(false);
 
-  // expo-audio recorder
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recorderState = useAudioRecorderState(recorder, 500);
+  // Native recorder (expo-audio) - used on iOS/Android
+  const nativeRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const nativeRecorderState = useAudioRecorderState(nativeRecorder, 500);
+
+  // Web recorder - used on web platform
+  const webRecorderRef = useRef<WebRecorder | null>(null);
+
+  const isWeb = Platform.OS === "web";
 
   // Animation
   const pulseScale = useSharedValue(1);
@@ -115,33 +217,49 @@ export default function RecordingScreen() {
     }
   }, [state]);
 
+  // ---- Start Recording ----
   const startRecording = useCallback(async () => {
     try {
-      // Request microphone permission
-      const { granted } = await requestRecordingPermissionsAsync();
-      if (!granted) {
-        setErrorMsg(
-          "Microphone permission is required. Please allow microphone access in your device settings and try again."
-        );
-        setState("error");
-        return;
+      if (isWeb) {
+        // Web: use MediaRecorder directly
+        const webRec = new WebRecorder();
+        try {
+          await webRec.prepare();
+        } catch (err: any) {
+          if (err?.message === "MEDIA_DEVICES_NOT_AVAILABLE") {
+            setErrorMsg(
+              "Microphone is not available in this browser environment. Please open the app in a browser that supports microphone access (Chrome, Firefox, Safari), or use the Expo Go app on your phone for the best experience."
+            );
+            setState("error");
+            return;
+          }
+          throw err;
+        }
+        webRec.start();
+        webRecorderRef.current = webRec;
+      } else {
+        // Native: use expo-audio
+        const { granted } = await requestRecordingPermissionsAsync();
+        if (!granted) {
+          setErrorMsg(
+            "Microphone permission is required. Please allow microphone access in your device settings and try again."
+          );
+          setState("error");
+          return;
+        }
+        await setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
+        await nativeRecorder.prepareToRecordAsync();
+        nativeRecorder.record();
       }
-
-      // Configure audio mode for recording
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-      });
-
-      // Prepare and start recording
-      await recorder.prepareToRecordAsync();
-      recorder.record();
 
       startTimeRef.current = Date.now();
       isStoppingRef.current = false;
       setState("recording");
 
-      if (Platform.OS !== "web") {
+      if (!isWeb) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err) {
@@ -151,8 +269,9 @@ export default function RecordingScreen() {
       );
       setState("error");
     }
-  }, [recorder]);
+  }, [isWeb, nativeRecorder]);
 
+  // ---- Stop Recording ----
   const stopRecording = useCallback(async () => {
     if (isStoppingRef.current) return;
     isStoppingRef.current = true;
@@ -169,7 +288,12 @@ export default function RecordingScreen() {
         `Please speak for at least ${MIN_DURATION} seconds. You spoke for ${actualDuration} seconds.`
       );
       try {
-        await recorder.stop();
+        if (isWeb) {
+          await webRecorderRef.current?.stop();
+          webRecorderRef.current?.cleanup();
+        } else {
+          await nativeRecorder.stop();
+        }
       } catch {}
       setState("error");
       return;
@@ -178,23 +302,30 @@ export default function RecordingScreen() {
     setState("analyzing");
 
     try {
-      // Stop the recorder
-      await recorder.stop();
+      let base64: string;
+      let mimeType: string;
 
-      // Get the recording URI
-      const uri = recorder.uri;
-      if (!uri) {
-        throw new Error("No recording URI available");
+      if (isWeb) {
+        // Web: get base64 from WebRecorder
+        await webRecorderRef.current?.stop();
+        const data = await webRecorderRef.current!.getBase64();
+        base64 = data.base64;
+        mimeType = data.mimeType;
+        webRecorderRef.current?.cleanup();
+      } else {
+        // Native: stop recorder and read file
+        await nativeRecorder.stop();
+        const uri = nativeRecorder.uri;
+        if (!uri) throw new Error("No recording URI available");
+
+        // Dynamic import for native file system
+        const FileSystem = await import("expo-file-system/legacy");
+        base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const isM4a = uri.endsWith(".m4a") || uri.endsWith(".caf");
+        mimeType = isM4a ? "audio/mp4" : "audio/webm";
       }
-
-      // Read the file as base64
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      // Determine mime type based on file extension
-      const isM4a = uri.endsWith(".m4a") || uri.endsWith(".caf");
-      const mimeType = isM4a ? "audio/mp4" : "audio/webm";
 
       // Send to server for analysis
       const result = await analyzeMutation.mutateAsync({
@@ -212,7 +343,7 @@ export default function RecordingScreen() {
       };
       await addToHistory(speakingResult);
 
-      if (Platform.OS !== "web") {
+      if (!isWeb) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
@@ -228,20 +359,22 @@ export default function RecordingScreen() {
       );
       setState("error");
     }
-  }, [topicTitle, analyzeMutation, router, recorder]);
+  }, [topicTitle, analyzeMutation, router, isWeb, nativeRecorder]);
 
   const handleStop = () => {
-    if (Platform.OS !== "web") {
+    if (!isWeb) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     stopRecording();
   };
 
   const handleGoBack = () => {
-    // Clean up recorder if still active
-    if (recorderState.isRecording) {
+    // Clean up
+    if (isWeb) {
+      webRecorderRef.current?.cleanup();
+    } else if (nativeRecorderState.isRecording) {
       try {
-        recorder.stop();
+        nativeRecorder.stop();
       } catch {}
     }
     if (timerRef.current) clearInterval(timerRef.current);
