@@ -4,7 +4,7 @@ import { ScreenContainer } from "@/components/ScreenContainer";
 import type { SpeakingTopic, SpeakingResult } from "@/types";
 import { getRandomTopic, getNextTopic } from "@/lib/topics";
 import { getRecentHistory } from "@/lib/historyStore";
-import { getCEFRColor, getCEFRLabel } from "@/lib/cefr";
+import { getCEFRColor } from "@/lib/cefr";
 
 export default function HomePage() {
   const navigate = useNavigate();
