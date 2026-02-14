@@ -3,6 +3,7 @@ interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
   lang: string;
+  maxAlternatives: number;
   onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
   onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
   onend: ((this: SpeechRecognition, ev: Event) => any) | null;
